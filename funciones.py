@@ -79,7 +79,8 @@ def transformar_a_esquema_parquet(df):
 
 def generar_df_articulos_por_mes_anho(df):
     df_year_month = (
-        df.select("doi", "createdDate").distinct()
+        # df.select("doi", "createdDate").distinct()
+        df.dropDuplicates(["doi"]) # Se procede a eliminar duplicados por DOI, aunque sea en fechas distintas.
         # df.withColumn("createdDateStruct", to_date(col("createdDate"), "dd-MM-yyyy"))
         .withColumn("createdDateUTC", to_utc_timestamp(col("createdDate"), "UTC"))
         .withColumn("created_year", year(col("createdDateUTC")))
