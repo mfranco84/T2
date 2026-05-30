@@ -79,8 +79,9 @@ def transformar_a_esquema_parquet(df):
 
 def generar_df_articulos_por_mes_anho(df):
     df_year_month = (
+        df.select("doi", "createdDate").distinct()
         # df.withColumn("createdDateStruct", to_date(col("createdDate"), "dd-MM-yyyy"))
-        df.withColumn("createdDateUTC", to_utc_timestamp(col("createdDate"), "UTC"))
+        .withColumn("createdDateUTC", to_utc_timestamp(col("createdDate"), "UTC"))
         .withColumn("created_year", year(col("createdDateUTC")))
         .withColumn("created_month", month(col("createdDateUTC")))
         # .select("created_year", "created_month", "total_articles")
@@ -89,5 +90,13 @@ def generar_df_articulos_por_mes_anho(df):
         df_year_month.groupBy("created_year", "created_month")
         .count().withColumnRenamed("count", "total_articles")
         # .orderBy("total_articles", ascending=False)
-        .orderBy(desc("created_year"), desc("created_month"))
+        .orderBy("created_year", "created_month")
+    )
+
+def generar_df_research_group(df):
+    df_seleccionado = df.select("groupTitle", "doi").distinct()
+    return (
+        df_seleccionado.groupBy(col("groupTitle").alias("group_title"))
+        .count()
+        .withColumnRenamed("count", "total")
     )
