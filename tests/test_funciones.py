@@ -83,3 +83,24 @@ def test_generar_df_articulos_por_mes_anho():
     assert df_resultado.count() == 3
     assert df_resultado.collect()[0]["created_year"] == 2020
     assert df_resultado.collect()[0]["created_month"] == 1
+
+def test_generar_df_research_group():
+    filas = [
+        ("Group1", "10.1101/2020.01.24.915157"),
+        ("Group2", "10.3201/eid1007.030647"),
+        ("Group1", "10.3201/eid1007.030647"),
+        ("Group3", "10.1056/NEJMoa2001316"),
+        ("Group2", "10.1101/2020.01.24.915157"),
+        ("Group2", "10.1002/jmv.25678"),
+        ("Group2", "10.3201/eid1007.030647"),
+    ]
+    columnas = ["groupTitle", "doi"]
+    df_inicial = spark.createDataFrame(filas, columnas)
+    df_resultado = generar_df_research_group(df_inicial).orderBy(col("group_title"))
+
+    assert df_resultado.columns == ["group_title", "total"]
+    assert df_resultado.count() == 3
+    assert df_resultado.collect()[0]["group_title"] == "Group1"
+    assert df_resultado.collect()[0]["total"] == 2
+    assert df_resultado.collect()[1]["group_title"] == "Group2"
+    assert df_resultado.collect()[1]["total"] == 3
