@@ -3,7 +3,8 @@ import os
 from pyspark.sql import SparkSession
 from funciones import (
   definir_esquema_json,
-  transformar_a_esquema_parquet
+  transformar_a_esquema_parquet,
+  generar_df_articulos_por_mes_anho
 )
 
 ROJO = "\033[31m"
@@ -34,12 +35,14 @@ def main():
 
     path_archivos_json = sys.argv[1:]
     parquet_output_path = "output/crossref-parquet"
+    csv_articles_month_year_output_path = "output/articles_month_year/articles_month_year.csv"
     
     spark = (SparkSession.builder
         .appName("Tarea2")
         .getOrCreate()
     )
 
+    # Punto 1 (Solo crear el parquet si no existe, sino cargarlo directamente)
     if ruta_existe(spark, parquet_output_path):
       print(f"{AZUL}Cargando datos desde archivo parquet...{RESET}")
       df = spark.read.parquet(parquet_output_path)
@@ -49,6 +52,7 @@ def main():
       df_original = spark.read.option("multiline", "true").schema(esquema_json).json(path_archivos_json)
       print(f"{VERDE}Esquema original:{RESET}")
       df_original.printSchema()
+      print(f"{VERDE}Mostrando datos del esquema original:{RESET}")
       df_original.show(5, truncate=False)
       df_esquema_parquet = transformar_a_esquema_parquet(df_original)
       df_esquema_parquet.write.mode("overwrite").parquet(parquet_output_path)
@@ -56,9 +60,15 @@ def main():
 
     print(f"{VERDE}Esquema parquet:{RESET}")
     df.printSchema()
+    print(f"{VERDE}Mostrando datos del esquema parquet:{RESET}")
     df.show(5, truncate=True)
+
+    # Punto 2 (Generar el archivo csv)
+    df_articulos_por_mes_anho = generar_df_articulos_por_mes_anho(df)
+    df_articulos_por_mes_anho.printSchema()
+    df_articulos_por_mes_anho.show(5, truncate=True)
+    df_articulos_por_mes_anho.write.mode("overwrite").option("header", "true").csv(csv_articles_month_year_output_path)
     
-    sys.exit(1)
     ######################################################
 
 if __name__ == "__main__":

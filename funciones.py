@@ -1,4 +1,4 @@
-from pyspark.sql import functions as Func
+from pyspark.sql.functions import col, to_date, year, month, to_utc_timestamp, desc
 from pyspark.sql.types import StructType, StructField, StringType, ArrayType, BooleanType, LongType
 
 def definir_esquema_json():
@@ -63,21 +63,31 @@ def definir_esquema_json():
 ])
 
 def transformar_a_esquema_parquet(df):
-    """
-    Transforms the raw Crossref JSON DataFrame to the required Parquet schema.
-    Flattens the 'message' struct and selects/renames specific fields.
-    """
-
     msg_df = df.select("message.*")
 
     return msg_df.select(
-        Func.col("DOI").alias("doi"),
-        Func.col("author"),
-        Func.col("institution").alias("inst"),
-        Func.col("group-title").alias("groupTitle"),
-        Func.col("created.date-time").alias("createdDate"),
-        Func.col("prefix"),
-        Func.col("reference"),
-        Func.col("link"),
-        Func.col("subtype")
+        col("DOI").alias("doi"),
+        col("author"),
+        col("institution").alias("inst"),
+        col("group-title").alias("groupTitle"),
+        col("created.date-time").alias("createdDate"),
+        col("prefix"),
+        col("reference"),
+        col("link"),
+        col("subtype")
+    )
+
+def generar_df_articulos_por_mes_anho(df):
+    df_year_month = (
+        # df.withColumn("createdDateStruct", to_date(col("createdDate"), "dd-MM-yyyy"))
+        df.withColumn("createdDateUTC", to_utc_timestamp(col("createdDate"), "UTC"))
+        .withColumn("created_year", year(col("createdDateUTC")))
+        .withColumn("created_month", month(col("createdDateUTC")))
+        # .select("created_year", "created_month", "total_articles")
+    )
+    return (
+        df_year_month.groupBy("created_year", "created_month")
+        .count().withColumnRenamed("count", "total_articles")
+        # .orderBy("total_articles", ascending=False)
+        .orderBy(desc("created_year"), desc("created_month"))
     )
