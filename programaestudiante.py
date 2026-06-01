@@ -5,7 +5,10 @@ from funciones import (
   definir_esquema_json,
   transformar_a_esquema_parquet,
   generar_df_articulos_por_mes_anho,
-  generar_df_research_group
+  generar_df_research_group,
+  generar_df_research_areas_per_person,
+  generar_df_person_most_references,
+  generar_df_percentil
 )
 
 ROJO = "\033[31m"
@@ -77,6 +80,47 @@ def main():
     df_research_group.printSchema()
     df_research_group.show(5, truncate=True)
     df_research_group.write.mode("overwrite").option("header", "true").csv(csv_research_areas_per_person_output_path)
+
+    # Punto 4: Generar JSON con las áreas de investigación por persona
+    json_research_areas_output_path = "output/research_areas_per_person"
+    print(f"{VERDE}Generando archivo JSON de research areas por persona...{RESET}")
+    df_research_areas = generar_df_research_areas_per_person(df)
+    df_research_areas.printSchema()
+    df_research_areas.show(5, truncate=False)
+    # Escribir un único archivo JSON (coalesce 1)
+    df_research_areas.coalesce(1).write.mode("overwrite").json(json_research_areas_output_path)
+
+    # Punto 5: Generar JSON con la persona que tiene más referencias con DOI
+    json_person_references_output_path = "output/person_most_references"
+    print(f"{VERDE}Generando archivo JSON de la persona con más referencias con DOI...{RESET}")
+    df_person_references = generar_df_person_most_references(df)
+    df_person_references.printSchema()
+    df_person_references.show(5, truncate=False)
+    df_person_references.coalesce(1).write.mode("overwrite").json(json_person_references_output_path)
+
+    # Punto 6: Generar CSV con el percentil 25 de total_references
+    csv_percentil_25_output_path = "output/percentil_25"
+    print(f"{VERDE}Generando archivo CSV del percentil 25 de total_references...{RESET}")
+    df_percentil_25 = generar_df_percentil(df, 0.25)
+    df_percentil_25.printSchema()
+    df_percentil_25.show(5, truncate=False)
+    df_percentil_25.coalesce(1).write.mode("overwrite").option("header", "true").csv(csv_percentil_25_output_path)
+
+    # Punto 7: Generar CSV con el percentil 50 de total_references
+    csv_percentil_50_output_path = "output/percentil_50"
+    print(f"{VERDE}Generando archivo CSV del percentil 50 de total_references...{RESET}")
+    df_percentil_50 = generar_df_percentil(df, 0.5)
+    df_percentil_50.printSchema()
+    df_percentil_50.show(5, truncate=False)
+    df_percentil_50.coalesce(1).write.mode("overwrite").option("header", "true").csv(csv_percentil_50_output_path)
+
+    # Punto 8: Generar CSV con el percentil 75 de total_references
+    csv_percentil_75_output_path = "output/percentil_75"
+    print(f"{VERDE}Generando archivo CSV del percentil 75 de total_references...{RESET}")
+    df_percentil_75 = generar_df_percentil(df, 0.75)
+    df_percentil_75.printSchema()
+    df_percentil_75.show(5, truncate=False)
+    df_percentil_75.coalesce(1).write.mode("overwrite").option("header", "true").csv(csv_percentil_75_output_path)
 
     ######################################################
 
