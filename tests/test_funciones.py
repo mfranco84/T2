@@ -1,4 +1,4 @@
-from funciones import definir_esquema_json, transformar_a_esquema_parquet, generar_df_articulos_por_mes_anho, generar_df_research_group
+from funciones import definir_esquema_json, transformar_a_esquema_parquet, generar_df_articulos_por_mes_anho, generar_df_research_group, generar_df_research_areas_per_person, generar_df_person_references, generar_df_person_most_references, generar_df_percentil
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
 from pyspark.sql.types import StructType, StructField, StringType, ArrayType, NullType
@@ -104,3 +104,110 @@ def test_generar_df_research_group():
     assert df_resultado.collect()[0]["total"] == 2
     assert df_resultado.collect()[1]["group_title"] == "Group2"
     assert df_resultado.collect()[1]["total"] == 3
+
+def test_generar_df_research_areas_per_person():
+    schema = StructType([
+        StructField("doi", StringType(), True),
+        StructField("groupTitle", StringType(), True),
+        StructField("author", ArrayType(StructType([
+            StructField("given", StringType(), True),
+            StructField("family", StringType(), True)
+        ])), True)
+    ])
+    
+    filas = [
+        ("doi1", "Physics", [{"given": "Isaac", "family": "Newton"}]),
+        ("doi2", "Math", [{"given": "Isaac", "family": "Newton"}]),
+        ("doi3", "Physics", [{"given": "Marie", "family": "Curie"}]),
+        ("doi4", "Chemistry", [{"given": "", "family": ""}]), # unknown
+    ]
+    
+    df_inicial = spark.createDataFrame(filas, schema=schema)
+    df_resultado = generar_df_research_areas_per_person(df_inicial)
+    
+    datos = df_resultado.collect()
+    # Newton has 2 areas, Curie 1, Unknown 1
+    assert datos[0]["full_name"] == "IsaacNewton"
+    assert datos[0]["total"] == 2
+    assert "Physics" in datos[0]["research_areas"]
+    assert "Math" in datos[0]["research_areas"]
+    assert any(r["full_name"] == "unknown" for r in datos)
+
+def test_generar_df_person_references():
+    schema = StructType([
+        StructField("doi", StringType(), True),
+        StructField("author", ArrayType(StructType([
+            StructField("given", StringType(), True),
+            StructField("family", StringType(), True),
+            StructField("name", StringType(), True)
+        ])), True),
+        StructField("reference", ArrayType(StructType([
+            StructField("DOI", StringType(), True)
+        ])), True)
+    ])
+    
+    filas = [
+        ("doi1", [{"given": "Isaac", "family": "Newton", "name": None}], [{"DOI": "ref1"}, {"DOI": "ref2"}]),
+        ("doi1", [{"given": "Isaac", "family": "Newton", "name": None}], [{"DOI": "ref1"}]), # Duplicate ref in same paper
+        ("doi2", [{"given": "Isaac", "family": "Newton", "name": None}], [{"DOI": "ref3"}]),
+        ("doi3", [{"given": None, "family": None, "name": ""}], [{"DOI": "ref4"}]), # unknown
+    ]
+    
+    df_inicial = spark.createDataFrame(filas, schema=schema)
+    df_resultado = generar_df_person_references(df_inicial)
+    
+    # Newton: 2 unique refs from doi1 + 1 from doi2 = 3
+    # Unknown: excluded
+    assert df_resultado.count() == 1
+    datos = df_resultado.collect()
+    assert datos[0]["full_name"] == "IsaacNewton"
+    assert datos[0]["total_references"] == 3
+
+def test_generar_df_person_most_references():
+    schema = StructType([
+        StructField("doi", StringType(), True),
+        StructField("author", ArrayType(StructType([
+            StructField("given", StringType(), True),
+            StructField("family", StringType(), True),
+            StructField("name", StringType(), True)
+        ])), True),
+        StructField("reference", ArrayType(StructType([
+            StructField("DOI", StringType(), True)
+        ])), True)
+    ])
+    
+    filas = [
+        ("doi1", [{"given": "Isaac", "family": "Newton", "name": None}], [{"DOI": "ref1"}]),
+        ("doi2", [{"given": "Marie", "family": "Curie", "name": None}], [{"DOI": "ref2"}, {"DOI": "ref3"}]),
+    ]
+    
+    df_inicial = spark.createDataFrame(filas, schema=schema)
+    df_resultado = generar_df_person_most_references(df_inicial)
+    
+    assert df_resultado.count() == 1
+    assert df_resultado.collect()[0]["full_name"] == "MarieCurie"
+
+def test_generar_df_percentil():
+    schema = StructType([
+        StructField("doi", StringType(), True),
+        StructField("author", ArrayType(StructType([
+            StructField("given", StringType(), True),
+            StructField("family", StringType(), True),
+            StructField("name", StringType(), True)
+        ])), True),
+        StructField("reference", ArrayType(StructType([
+            StructField("DOI", StringType(), True)
+        ])), True)
+    ])
+    
+    filas = [
+        ("d1", [{"given": "A", "family": "A", "name": None}], [{"DOI": "r1"}]), # 1 ref
+        ("d2", [{"given": "B", "family": "B", "name": None}], [{"DOI": "r2"}, {"DOI": "r3"}]), # 2 refs
+        ("d3", [{"given": "C", "family": "C", "name": None}], [{"DOI": "r4"}, {"DOI": "r5"}, {"DOI": "r6"}]), # 3 refs
+    ]
+    
+    df_inicial = spark.createDataFrame(filas, schema=schema)
+    # Median (0.5 percentile) of [1, 2, 3] is 2
+    df_resultado = generar_df_percentil(df_inicial, 0.5)
+    
+    assert df_resultado.collect()[0]["total_references"] == 2
