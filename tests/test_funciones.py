@@ -3,7 +3,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
 from pyspark.sql.types import StructType, StructField, StringType, ArrayType, NullType
 
-spark = SparkSession.builder.appName("UnitTest").getOrCreate()
+spark = SparkSession.builder.appName("PruebaUnitaria").getOrCreate()
 
 def test_transformar_a_esquema_parquet():
     esquema_inicial = definir_esquema_json()
@@ -58,12 +58,12 @@ def test_transformar_a_esquema_parquet():
     df_transformado = transformar_a_esquema_parquet(df_inicial)
 
     columnas_final = ["doi", "author", "inst", "groupTitle", "createdDate", "prefix", "reference", "link", "subtype"]
-    assert df_transformado.columns == columnas_final
+    assert df_transformado.columns == columnas_final, "Las columnas del esquema transformado no coinciden"
 
     datos = df_transformado.collect()
-    assert datos[0]["doi"] == "10.1101/2020.01.24.915157"
-    assert datos[0]["groupTitle"] == "Bioinformatics"
-    assert datos[0]["createdDate"] == "2020-01-24T15:45:13Z"
+    assert datos[0]["doi"] == "10.1101/2020.01.24.915157", "El DOI no coincide"
+    assert datos[0]["groupTitle"] == "Bioinformatics", "El título del grupo no coincide"
+    assert datos[0]["createdDate"] == "2020-01-24T15:45:13Z", "La fecha de creación no coincide"
 
 def test_generar_df_articulos_por_mes_anho():
     filas = [
@@ -79,10 +79,10 @@ def test_generar_df_articulos_por_mes_anho():
     df_inicial = spark.createDataFrame(filas, columnas)
     df_resultado = generar_df_articulos_por_mes_anho(df_inicial)
 
-    assert df_resultado.columns == ["created_year", "created_month", "total_articles"]
-    assert df_resultado.count() == 3
-    assert df_resultado.collect()[0]["created_year"] == 2020
-    assert df_resultado.collect()[0]["created_month"] == 1
+    assert df_resultado.columns == ["created_year", "created_month", "total_articles"], "Nombres de columnas incorrectos"
+    assert df_resultado.count() == 3, "Número incorrecto de registros procesados"
+    assert df_resultado.collect()[0]["created_year"] == 2020, "Año de creación incorrecto"
+    assert df_resultado.collect()[0]["created_month"] == 1, "Mes de creación incorrecto"
 
 def test_generar_df_research_group():
     filas = [
@@ -98,12 +98,12 @@ def test_generar_df_research_group():
     df_inicial = spark.createDataFrame(filas, columnas)
     df_resultado = generar_df_research_group(df_inicial).orderBy(col("group_title"))
 
-    assert df_resultado.columns == ["group_title", "total"]
-    assert df_resultado.count() == 3
-    assert df_resultado.collect()[0]["group_title"] == "Group1"
-    assert df_resultado.collect()[0]["total"] == 2
-    assert df_resultado.collect()[1]["group_title"] == "Group2"
-    assert df_resultado.collect()[1]["total"] == 3
+    assert df_resultado.columns == ["group_title", "total"], "Nombres de columnas incorrectos"
+    assert df_resultado.count() == 3, "Número incorrecto de grupos"
+    assert df_resultado.collect()[0]["group_title"] == "Group1", "Nombre de grupo incorrecto"
+    assert df_resultado.collect()[0]["total"] == 2, "Total de artículos por grupo incorrecto"
+    assert df_resultado.collect()[1]["group_title"] == "Group2", "Nombre de grupo incorrecto"
+    assert df_resultado.collect()[1]["total"] == 3, "Total de artículos por grupo incorrecto"
 
 def test_generar_df_research_areas_per_person():
     schema = StructType([
@@ -119,19 +119,18 @@ def test_generar_df_research_areas_per_person():
         ("doi1", "Physics", [{"given": "Isaac", "family": "Newton"}]),
         ("doi2", "Math", [{"given": "Isaac", "family": "Newton"}]),
         ("doi3", "Physics", [{"given": "Marie", "family": "Curie"}]),
-        ("doi4", "Chemistry", [{"given": "", "family": ""}]), # unknown
+        ("doi4", "Chemistry", [{"given": "", "family": ""}]), # desconocido
     ]
     
     df_inicial = spark.createDataFrame(filas, schema=schema)
     df_resultado = generar_df_research_areas_per_person(df_inicial)
     
     datos = df_resultado.collect()
-    # Newton has 2 areas, Curie 1, Unknown 1
-    assert datos[0]["full_name"] == "IsaacNewton"
-    assert datos[0]["total"] == 2
-    assert "Physics" in datos[0]["research_areas"]
-    assert "Math" in datos[0]["research_areas"]
-    assert any(r["full_name"] == "unknown" for r in datos)
+    assert datos[0]["full_name"] == "IsaacNewton", "El nombre completo no coincide"
+    assert datos[0]["total"] == 2, "El total de áreas no coincide"
+    assert "Physics" in datos[0]["research_areas"], "El área de Física debería estar presente"
+    assert "Math" in datos[0]["research_areas"], "El área de Matemática debería estar presente"
+    assert any(r["full_name"] == "unknown" for r in datos), "Debería existir un autor desconocido"
 
 def test_generar_df_person_references():
     schema = StructType([
@@ -148,20 +147,18 @@ def test_generar_df_person_references():
     
     filas = [
         ("doi1", [{"given": "Isaac", "family": "Newton", "name": None}], [{"DOI": "ref1"}, {"DOI": "ref2"}]),
-        ("doi1", [{"given": "Isaac", "family": "Newton", "name": None}], [{"DOI": "ref1"}]), # Duplicate ref in same paper
+        ("doi1", [{"given": "Isaac", "family": "Newton", "name": None}], [{"DOI": "ref1"}]), # Duplicado en el mismo paper
         ("doi2", [{"given": "Isaac", "family": "Newton", "name": None}], [{"DOI": "ref3"}]),
-        ("doi3", [{"given": None, "family": None, "name": ""}], [{"DOI": "ref4"}]), # unknown
+        ("doi3", [{"given": None, "family": None, "name": ""}], [{"DOI": "ref4"}]), # desconocido
     ]
     
     df_inicial = spark.createDataFrame(filas, schema=schema)
     df_resultado = generar_df_person_references(df_inicial)
     
-    # Newton: 2 unique refs from doi1 + 1 from doi2 = 3
-    # Unknown: excluded
-    assert df_resultado.count() == 1
+    assert df_resultado.count() == 1, "Debería haber solo un autor válido"
     datos = df_resultado.collect()
-    assert datos[0]["full_name"] == "IsaacNewton"
-    assert datos[0]["total_references"] == 3
+    assert datos[0]["full_name"] == "IsaacNewton", "El nombre completo no coincide"
+    assert datos[0]["total_references"] == 3, "El total de referencias es incorrecto"
 
 def test_generar_df_person_most_references():
     schema = StructType([
@@ -184,8 +181,8 @@ def test_generar_df_person_most_references():
     df_inicial = spark.createDataFrame(filas, schema=schema)
     df_resultado = generar_df_person_most_references(df_inicial)
     
-    assert df_resultado.count() == 1
-    assert df_resultado.collect()[0]["full_name"] == "MarieCurie"
+    assert df_resultado.count() == 1, "Debería retornar solo una persona"
+    assert df_resultado.collect()[0]["full_name"] == "MarieCurie", "La persona con más referencias debería ser Marie Curie"
 
 def test_generar_df_percentil():
     schema = StructType([
@@ -210,4 +207,5 @@ def test_generar_df_percentil():
     # Median (0.5 percentile) of [1, 2, 3] is 2
     df_resultado = generar_df_percentil(df_inicial, 0.5)
     
-    assert df_resultado.collect()[0]["total_references"] == 2
+    assert df_resultado.collect()[0]["total_references"] == 2, "El percentil 50 (mediana) debería ser 2"
+
