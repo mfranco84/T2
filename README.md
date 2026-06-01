@@ -23,7 +23,7 @@ El programa procesa archivos JSON multilínea y genera resultados en la carpeta 
 
 ```bash
 cd /bg
-spark-submit programaestudiante.py crossref/*.json
+spark-submit  --driver-memory 4g  --executor-memory 4g  programaestudiante.py crossref/*.json
 ```
 
 ### Para ejecutar las pruebas:
