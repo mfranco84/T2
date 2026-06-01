@@ -204,7 +204,6 @@ def test_generar_df_percentil():
     ]
     
     df_inicial = spark.createDataFrame(filas, schema=schema)
-    # Median (0.5 percentile) of [1, 2, 3] is 2
     df_resultado = generar_df_percentil(df_inicial, 0.5)
     
     assert df_resultado.collect()[0]["total_references"] == 2, "El percentil 50 (mediana) debería ser 2"
